@@ -30,7 +30,7 @@ These are testable with plain `assertEquals`. No StackWalker, no file IO.
   - Files: `internal/Normalizer.java`, `src/test/java/.../NormalizerTest.java`
   - Done when: input pairs differing only in trailing whitespace / final newline are equal after normalization; documented as canonical form.
 
-- [ ] **1.2 JsonRenderer**
+- [x] **1.2 JsonRenderer**
   - Goal: deterministic JSON via configured `ObjectMapper` (alphabetical props, ISO-8601 dates, `JavaTimeModule` + `Jdk8Module`, 2-space indent, `\n` line separator).
   - Files: `internal/JsonRenderer.java`, `JsonRendererTest.java`
   - Done when: POJOs / records / `Map` / `LocalDateTime` / `Optional` produce stable strings; property order is alphabetical regardless of source order; line endings are `\n` on all platforms.
