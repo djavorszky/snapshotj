@@ -25,7 +25,7 @@ Each task: **Goal** → **Files** → **Done when**. Check the box when verified
 
 These are testable with plain `assertEquals`. No StackWalker, no file IO.
 
-- [ ] **1.1 Normalizer**
+- [x] **1.1 Normalizer**
   - Goal: trailing-whitespace + trailing-newline normalization rules per `PLAN.md` §"Decisions" #3.
   - Files: `internal/Normalizer.java`, `src/test/java/.../NormalizerTest.java`
   - Done when: input pairs differing only in trailing whitespace / final newline are equal after normalization; documented as canonical form.
