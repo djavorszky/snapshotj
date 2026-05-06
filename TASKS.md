@@ -14,7 +14,7 @@ Each task: **Goal** → **Files** → **Done when**. Check the box when verified
   - Deps to add (compile): `jackson-databind`, `jackson-datatype-jsr310`, `jackson-datatype-jdk8`, `commons-csv`, `java-diff-utils`. Test: keep existing JUnit 5 BOM.
   - Done when: `./gradlew build` resolves all deps; `./gradlew dependencies` shows the expected tree; toolchain reports JDK 17.
 
-- [ ] **0.2 Package skeleton**
+- [x] **0.2 Package skeleton**
   - Goal: empty package files exist so imports compile while later phases fill them in.
   - Files: `src/main/java/dev/jdan/snapshotj/{Snap,Snapshot,SnapshotConfig}.java` (stubs), `src/main/java/dev/jdan/snapshotj/internal/` (empty package).
   - Done when: package compiles; `Snap.snap(x)` exists as a stub returning a `Snapshot<T>` whose methods throw `UnsupportedOperationException`.
