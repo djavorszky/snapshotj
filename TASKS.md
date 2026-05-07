@@ -35,7 +35,7 @@ These are testable with plain `assertEquals`. No StackWalker, no file IO.
   - Files: `internal/JsonRenderer.java`, `JsonRendererTest.java`
   - Done when: POJOs / records / `Map` / `LocalDateTime` / `Optional` produce stable strings; property order is alphabetical regardless of source order; line endings are `\n` on all platforms.
 
-- [ ] **1.3 CsvRenderer**
+- [x] **1.3 CsvRenderer**
   - Goal: Commons CSV, header derived from first element via Jackson `BeanDescription`, alphabetized columns, `\n` separator, null cells empty.
   - Files: `internal/CsvRenderer.java`, `CsvRendererTest.java`
   - Done when: `List<Record>` / `List<Map>` / arrays render correctly; non-iterable input throws `IllegalArgumentException` with a clear message.
