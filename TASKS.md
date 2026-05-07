@@ -46,7 +46,7 @@ These are testable with plain `assertEquals`. No StackWalker, no file IO.
 
 Wire renderers through the user-facing API. Mismatches throw `AssertionError`. `.update()` is a no-op flag for now.
 
-- [ ] **2.1 Snap & Snapshot**
+- [x] **2.1 Snap & Snapshot**
   - Goal: `Snap.snap(value)` entry; `Snapshot<T>` with `update()`, `matches(expected, renderer)`, `matchesJson(expected)`, `matchesCsv(expected)`. `matchesJson`/`matchesCsv` delegate to `matches` with the bound renderer.
   - Files: `Snap.java`, `Snapshot.java`
   - Done when: mismatched expected throws `AssertionError`; matching expected returns normally; `matchesJson` and `matchesCsv` route through `matches`.
