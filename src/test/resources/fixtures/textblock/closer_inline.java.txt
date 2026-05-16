@@ -1,0 +1,8 @@
+package fixtures;
+
+class CloserInline {
+    void test() {
+        snap(x).matchesJson("""
+                {"a": 1}""");
+    }
+}

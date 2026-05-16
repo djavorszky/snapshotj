@@ -1,0 +1,9 @@
+package fixtures;
+
+class Concat {
+    void test() {
+        snap(x).matchesJson("prefix" + """
+                rest
+                """);
+    }
+}

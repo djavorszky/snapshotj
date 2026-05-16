@@ -1,0 +1,11 @@
+package fixtures;
+
+class MultipleBlocks {
+    void test() {
+        snap(x).matches("""
+                first
+                """, t -> render(t, """
+                second
+                """));
+    }
+}

@@ -1,0 +1,9 @@
+package fixtures;
+
+class Simple {
+    void test() {
+        snap(x).matchesJson("""
+                {"a": 1}
+                """);
+    }
+}

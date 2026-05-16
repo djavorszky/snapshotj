@@ -1,0 +1,10 @@
+package fixtures;
+
+class CallOnNextLine {
+    void test() {
+        snap(x).matchesJson(
+                """
+                actual
+                """);
+    }
+}

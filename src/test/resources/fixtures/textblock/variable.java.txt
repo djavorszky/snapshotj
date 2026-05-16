@@ -1,0 +1,8 @@
+package fixtures;
+
+class Variable {
+    void test() {
+        String EXPECTED = "x";
+        snap(x).matchesJson(EXPECTED);
+    }
+}

@@ -77,7 +77,7 @@ Read-only file resolution. No rewriting yet.
 
 ## Phase 4 — Text block parsing
 
-- [ ] **4.1 TextBlockFinder**
+- [x] **4.1 TextBlockFinder**
   - Goal: given a file and a starting line (the call line), locate the opening and closing `"""` of the inline expected literal.
   - Files: `internal/TextBlockFinder.java`, `TextBlockFinderTest.java` + fixtures under `src/test/resources/fixtures/`
   - Edge cases handled: same-line `"""..."""`, multi-line, indented, escaped `\"""` inside the block, comments containing `"""`, multiple text blocks on the same line.
@@ -88,7 +88,7 @@ Read-only file resolution. No rewriting yet.
 
 ## Phase 5 — Text block rewriting (in-memory only)
 
-- [ ] **5.1 TextBlockWriter**
+- [x] **5.1 TextBlockWriter**
   - Goal: produce the new file bytes given (original file, opener/closer range, replacement text).
   - Files: `internal/TextBlockWriter.java`, `TextBlockWriterTest.java`
   - Behavior: compute indent from the closing `"""` line (or opener if inline); re-indent rendered output to that level; always emit closing `"""` on its own line with trailing newline; escape only `"""`.

@@ -1,0 +1,9 @@
+package fixtures;
+
+class EscapedQuotes {
+    void test() {
+        snap(x).matches("""
+                \"""
+                """);
+    }
+}

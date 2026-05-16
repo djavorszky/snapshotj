@@ -1,0 +1,13 @@
+package fixtures;
+
+class Indented {
+    void test() {
+        if (true) {
+            if (true) {
+                snap(x).matchesJson("""
+                        line one
+                        """);
+            }
+        }
+    }
+}

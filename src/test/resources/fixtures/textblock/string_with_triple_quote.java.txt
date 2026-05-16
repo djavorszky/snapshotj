@@ -1,0 +1,9 @@
+package fixtures;
+
+class StringTriple {
+    void test() {
+        snap(prefix("\"\"\"")).matchesJson("""
+                actual
+                """);
+    }
+}
