@@ -1,4 +1,4 @@
-# snapshotj — implementation task list
+   # snapshotj — implementation task list
 
 Companion to `PLAN.md`. Phases are ordered so each builds on tested primitives below it. Within a phase, tasks can usually be parallelized. Don't skip layer-1 unit tests — the self-snapshot layer depends on them being green.
 
@@ -98,13 +98,13 @@ Read-only file resolution. No rewriting yet.
 
 ## Phase 6 — Pending edits & atomic flush
 
-- [ ] **6.1 PendingEdits queue**
+- [x] **6.1 PendingEdits queue**
   - Goal: collect edits during the test run; flush per file at JVM shutdown.
   - Files: `internal/PendingEdits.java`, `PendingEditsTest.java`
   - Behavior: per-path `ReentrantLock`; on flush, re-read file, apply queued edits in **reverse line order**, write atomically via `Files.move` from a temp file in the same directory.
   - Done when: multiple edits to the same file (any submission order) produce the same final bytes; concurrent producers serialize correctly; `kill -9` mid-flush leaves either the original or the new file intact (no partial writes).
 
-- [ ] **6.2 Shutdown hook registration**
+- [x] **6.2 Shutdown hook registration**
   - Goal: register the flush hook lazily on first edit, not at class load.
   - Files: `internal/PendingEdits.java`
   - Done when: tests that never trigger a rewrite don't install the hook; tests that do, install it exactly once.
