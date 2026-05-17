@@ -1,6 +1,7 @@
 package dev.jdan.snapshotj;
 
 import dev.jdan.snapshotj.internal.CsvRenderer;
+import dev.jdan.snapshotj.internal.DiffFormatter;
 import dev.jdan.snapshotj.internal.JsonRenderer;
 import dev.jdan.snapshotj.internal.Normalizer;
 import dev.jdan.snapshotj.internal.PendingEdits;
@@ -67,9 +68,10 @@ public final class Snapshot<T> {
         }
 
         throw new AssertionError(
-                "snapshot mismatch at " + caller.fileName() + ":" + caller.lineNumber()
-                        + "\nexpected:\n" + normalizedExpected
-                        + "\nactual:\n" + normalizedActual);
+                DiffFormatter.format(
+                        caller.fileName() + ":" + caller.lineNumber(),
+                        normalizedExpected,
+                        normalizedActual));
     }
 
     public void matchesJson(String expected) {

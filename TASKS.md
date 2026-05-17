@@ -113,12 +113,12 @@ Read-only file resolution. No rewriting yet.
 
 ## Phase 7 — `.update()` integration
 
-- [ ] **7.1 SnapshotConfig**
+- [x] **7.1 SnapshotConfig**
   - Goal: read `SNAPSHOTJ_UPDATE` env var and `-Dsnapshotj.update=true` sysprop; expose `globalUpdate()` boolean.
   - Files: `SnapshotConfig.java`
   - Done when: either toggle activates global update mode; values are read once per JVM (cached).
 
-- [ ] **7.2 Wire update into Snapshot**
+- [x] **7.2 Wire update into Snapshot**
   - Goal: when `update()` was called *or* `SnapshotConfig.globalUpdate()` is true, on mismatch enqueue a rewrite via `PendingEdits` and throw `AssertionError("snapshot updated at <file>:<line>; rerun without .update() to verify")`.
   - Files: `Snapshot.java`
   - Done when: passing snapshot is a no-op even with `.update()`; failing snapshot under update mode queues the edit and fails the test; failing snapshot without update mode queues nothing.
@@ -127,7 +127,7 @@ Read-only file resolution. No rewriting yet.
 
 ## Phase 8 — Diff message
 
-- [ ] **8.1 DiffFormatter**
+- [x] **8.1 DiffFormatter**
   - Goal: on mismatch (without update mode), build an `AssertionError` message containing a unified diff via `java-diff-utils`.
   - Files: `internal/DiffFormatter.java`, `DiffFormatterTest.java` (plain assertions, not self-snapshot)
   - Done when: message includes file:line, both sides labelled, unified-diff body; deterministic output across runs.
@@ -138,10 +138,10 @@ Read-only file resolution. No rewriting yet.
 
 These can only land once Phases 1–8 are green.
 
-- [ ] **9.1 JsonSnapshotTest** — curated POJOs/records/maps/dates rendered via `matchesJson`.
-- [ ] **9.2 CsvSnapshotTest** — `List<Record>` and `List<Map>` rendered via `matchesCsv`.
-- [ ] **9.3 DiffMessageSnapshotTest** — synthesize a deliberate mismatch, capture the `AssertionError` message via `assertThrows`, snapshot the message string with `matches`. Locks down diff output format.
-- [ ] **9.4 UpdateFlowTest** — copy a fixture `.java` file into a temp dir; run a programmatic `Snapshot.update()` against it (not via the test framework's classloader); assert resulting bytes match a known-good fixture. End-to-end check of the rewriting path.
+- [x] **9.1 JsonSnapshotTest** — curated POJOs/records/maps/dates rendered via `matchesJson`.
+- [x] **9.2 CsvSnapshotTest** — `List<Record>` and `List<Map>` rendered via `matchesCsv`.
+- [x] **9.3 DiffMessageSnapshotTest** — synthesize a deliberate mismatch, capture the `AssertionError` message via `assertThrows`, snapshot the message string with `matches`. Locks down diff output format.
+- [x] **9.4 UpdateFlowTest** — copy a fixture `.java` file into a temp dir; run a programmatic `Snapshot.update()` against it (not via the test framework's classloader); assert resulting bytes match a known-good fixture. End-to-end check of the rewriting path.
 
 ---
 
