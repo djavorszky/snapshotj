@@ -129,6 +129,13 @@ snap(users).matchesCsv("""
 
 See [`PLAN.md`](PLAN.md) for the full design rationale and the constraints that drove it.
 
+## Documentation
+
+In-repo guides for usage beyond the quick start:
+
+- [`docs/index.md`](docs/index.md) — documentation index.
+- [`docs/patterns.md`](docs/patterns.md) — handling time (`Clock`), Spring Boot caveats, and database-generated identifiers (sequences, `AUTO_INCREMENT`, UUIDs) in snapshots.
+
 ## Public API
 
 ```
