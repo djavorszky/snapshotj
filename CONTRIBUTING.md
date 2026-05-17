@@ -39,6 +39,8 @@ dev.jdan.snapshotj
 
 `internal/` is a convention, not a JPMS module. Treat anything under `internal/` as private — callers outside the package should not need to touch it. If you find yourself wanting to expose something, raise it in an issue.
 
+User-facing guides live under [`docs/`](docs/index.md). When a change affects an idiom documented there (Clock injection, sequence handling, renderer normalization, etc.), update the relevant page in the same PR.
+
 ## Invariants you must not break
 
 These come from `PLAN.md`. If a change requires breaking one of them, revisit the plan first.
