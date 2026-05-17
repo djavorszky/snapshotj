@@ -6,9 +6,11 @@ plugins {
 group = "dev.jdan"
 version = "0.1.0"
 
+val javaVersion = (findProperty("javaVersion") as String?)?.toInt() ?: 17
+
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(javaVersion)
     }
     withSourcesJar()
     withJavadocJar()
