@@ -8,7 +8,6 @@ import java.util.function.Function;
 
 import static dev.jdan.snapshotj.Snap.snap;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -81,28 +80,6 @@ class SnapshotTest {
     void crlfTolerance() {
         Function<Integer, String> renderer = n -> "alpha\nbeta";
         snap(0).matches("alpha\r\nbeta\r\n", renderer);
-    }
-
-    @Test
-    void updateChainsAndIsNoOpInPhase2() {
-        Snapshot<Point> snap = snap(new Point(1, 2));
-        assertSame(snap, snap.update());
-
-        assertDoesNotThrow(() -> snap(new Point(1, 2)).update().matchesJson("""
-                {
-                  "x" : 1,
-                  "y" : 2
-                }
-                """));
-
-        assertThrows(
-                AssertionError.class,
-                () -> snap(new Point(1, 2)).update().matchesJson("""
-                        {
-                          "x" : 9,
-                          "y" : 9
-                        }
-                        """));
     }
 
     @Test

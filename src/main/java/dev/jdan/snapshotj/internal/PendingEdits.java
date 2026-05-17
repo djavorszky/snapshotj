@@ -113,7 +113,7 @@ public final class PendingEdits {
         QUEUE.clear();
     }
 
-    static boolean hookRegistered() {
+    public static boolean hookRegistered() {
         return HOOK_REGISTERED.get();
     }
 
@@ -125,7 +125,7 @@ public final class PendingEdits {
         }
     }
 
-    static void resetForTesting() {
+    public static void resetForTesting() {
         QUEUE.clear();
         LOCKS.clear();
         Thread t = hookThread;

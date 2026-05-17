@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Resolves a {@code .java} source file from a fully-qualified class name and a
@@ -19,23 +20,28 @@ import java.util.Objects;
  */
 public final class SourceLocator {
 
-    private static final String SNAPSHOTJ_PREFIX = "dev.jdan.snapshotj.";
+    private static final String INTERNAL_PREFIX = "dev.jdan.snapshotj.internal.";
+    private static final Set<String> API_CLASSES = Set.of(
+            "dev.jdan.snapshotj.Snap",
+            "dev.jdan.snapshotj.Snapshot",
+            "dev.jdan.snapshotj.SnapshotConfig"
+    );
 
     private SourceLocator() {}
 
-    /** Captured location of the first stack frame outside {@code dev.jdan.snapshotj.*}. */
+    /** Captured location of the first stack frame outside the snapshotj library implementation. */
     public record CallerFrame(String className, String fileName, int lineNumber) {}
 
     /**
      * Walks the current thread's stack and returns the first frame whose declaring
-     * class is not part of {@code dev.jdan.snapshotj.*}. Throws
-     * {@link IllegalStateException} if no such frame exists, or if the matched
-     * frame's source file name is unavailable (compiled without the SourceFile
-     * attribute).
+     * class is not part of the snapshotj library implementation (i.e. not in
+     * {@code dev.jdan.snapshotj.internal} and not one of the public API classes).
+     * This allows callers in the {@code dev.jdan.snapshotj} package (such as tests)
+     * to be identified correctly.
      */
     public static CallerFrame callerFrame() {
         return StackWalker.getInstance().walk(frames -> frames
-                .filter(f -> !f.getClassName().startsWith(SNAPSHOTJ_PREFIX))
+                .filter(f -> !isLibraryClass(f))
                 .findFirst()
                 .map(f -> {
                     String fileName = f.getFileName();
@@ -47,7 +53,17 @@ public final class SourceLocator {
                     return new CallerFrame(f.getClassName(), fileName, f.getLineNumber());
                 })
                 .orElseThrow(() -> new IllegalStateException(
-                        "could not locate caller frame outside dev.jdan.snapshotj")));
+                        "could not locate caller frame outside snapshotj library")));
+    }
+
+    private static boolean isLibraryClass(StackWalker.StackFrame frame) {
+        String name = frame.getClassName();
+        if (name.startsWith(INTERNAL_PREFIX)) {
+            return true;
+        }
+        int dollar = name.indexOf('$');
+        String topLevel = dollar < 0 ? name : name.substring(0, dollar);
+        return API_CLASSES.contains(topLevel);
     }
 
     public static Path locate(String className, String fileName) {

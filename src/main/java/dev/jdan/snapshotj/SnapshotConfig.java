@@ -9,7 +9,21 @@ public final class SnapshotConfig {
     private SnapshotConfig() {}
 
     public static boolean globalUpdate() {
-        throw new UnsupportedOperationException("not implemented");
+        return GlobalUpdateHolder.VALUE;
+    }
+
+    private static final class GlobalUpdateHolder {
+        private static final boolean VALUE = resolve();
+
+        private static boolean resolve() {
+            String env = System.getenv("SNAPSHOTJ_UPDATE");
+            if (env != null && (env.equals("1")
+                    || env.equalsIgnoreCase("true")
+                    || env.equalsIgnoreCase("yes"))) {
+                return true;
+            }
+            return Boolean.parseBoolean(System.getProperty("snapshotj.update"));
+        }
     }
 
     public static List<Path> sourceRoots() {

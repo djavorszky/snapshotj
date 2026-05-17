@@ -3,9 +3,12 @@ package dev.jdan.snapshotj;
 import dev.jdan.snapshotj.internal.CsvRenderer;
 import dev.jdan.snapshotj.internal.JsonRenderer;
 import dev.jdan.snapshotj.internal.Normalizer;
+import dev.jdan.snapshotj.internal.PendingEdits;
 import dev.jdan.snapshotj.internal.SourceLocator;
 import dev.jdan.snapshotj.internal.SourceLocator.CallerFrame;
+import dev.jdan.snapshotj.internal.TextBlockFinder;
 
+import java.nio.file.Path;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -18,8 +21,9 @@ import java.util.function.Function;
  * {@link Normalizer} before comparison, so trailing whitespace, trailing newlines,
  * and line-ending differences do not cause spurious mismatches.
  *
- * <p>{@link #update()} currently records intent only; in-place rewriting is wired
- * up in a later phase.
+ * <p>{@link #update()} opts into in-place rewriting: on mismatch the inline literal
+ * is queued for rewriting and the test fails with a "snapshot updated" message so
+ * CI never silently passes a stale {@code .update()} call.
  */
 public final class Snapshot<T> {
 
@@ -30,7 +34,7 @@ public final class Snapshot<T> {
         this.value = value;
     }
 
-    /** Opt into rewriting the inline expected literal on mismatch. No-op until source rewriting lands. */
+    /** Opt into rewriting the inline expected literal on mismatch. */
     public Snapshot<T> update() {
         this.updateRequested = true;
         return this;
@@ -51,6 +55,15 @@ public final class Snapshot<T> {
         String normalizedExpected = Normalizer.normalize(expected);
         if (normalizedActual.equals(normalizedExpected)) {
             return;
+        }
+
+        if (updateRequested || SnapshotConfig.globalUpdate()) {
+            Path file = SourceLocator.locate(caller.className(), caller.fileName());
+            TextBlockFinder.Range range = TextBlockFinder.find(file, caller.lineNumber());
+            PendingEdits.enqueue(file, range, normalizedActual);
+            throw new AssertionError(
+                    "snapshot updated at " + caller.fileName() + ":" + caller.lineNumber()
+                            + "; rerun without .update() to verify");
         }
 
         throw new AssertionError(
