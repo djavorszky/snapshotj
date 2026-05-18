@@ -161,10 +161,10 @@ These can only land once Phases 1–8 are green.
 
 Blocked on user input — see "Open items" in `PLAN.md`.
 
-- [ ] **11.1 License file** (recommend Apache-2.0; user to confirm).
-- [ ] **11.2 POM metadata** — name, description, url, scm, developers. Needs GitHub coordinates.
-- [ ] **11.3 `maven-publish` + `signing` plugins** wired up.
-- [ ] **11.4 `io.github.gradle-nexus.publish-plugin`** for OSSRH staging.
+- [x] **11.1 License file** — MIT, `LICENSE` in repo root.
+- [x] **11.2 POM metadata** — url, licenses, scm, developers filled in `build.gradle.kts`.
+- [x] **11.3 `maven-publish` + `signing` plugins** wired up.
+- [x] **11.4 `com.gradleup.nmcp` 0.1.5** for new Central Portal (replaces legacy nexus-publish).
 - [ ] **11.5 First release** — bump version to `0.1.0`, tag, run staging path, close & release.
 
 ---

@@ -1,6 +1,8 @@
 plugins {
     id("java")
     id("maven-publish")
+    id("signing")
+    id("com.gradleup.nmcp") version "0.1.5"
 }
 
 group = "dev.jdan"
@@ -45,8 +47,50 @@ publishing {
             pom {
                 name.set("snapshotj")
                 description.set("JUnit-agnostic Java 17 library for inline snapshot testing")
-                // TODO(Phase 11): fill in url, licenses, scm, developers before first release
+                url.set("https://github.com/djavorszky/snapshotj")
+
+                licenses {
+                    license {
+                        name.set("MIT License")
+                        url.set("https://opensource.org/licenses/MIT")
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set("djavorszky")
+                        name.set("Daniel Javorszky")
+                        email.set("snapshotj@fastmail.com")
+                    }
+                }
+
+                scm {
+                    connection.set("scm:git:git://github.com/djavorszky/snapshotj.git")
+                    developerConnection.set("scm:git:ssh://github.com/djavorszky/snapshotj.git")
+                    url.set("https://github.com/djavorszky/snapshotj")
+                }
             }
         }
+    }
+}
+
+signing {
+    val signingKey: String? by project
+    val signingPassword: String? by project
+    if (signingKey != null) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign(publishing.publications["maven"])
+    }
+}
+
+nmcp {
+    centralPortal {
+        username = providers.gradleProperty("sonatypeUsername")
+            .orElse(providers.environmentVariable("SONATYPE_USERNAME"))
+        password = providers.gradleProperty("sonatypePassword")
+            .orElse(providers.environmentVariable("SONATYPE_PASSWORD"))
+        publicationName = "maven"
+        // USER_MANAGED = you click "Release" in the portal; switch to AUTOMATIC once confident
+        publishingType = "USER_MANAGED"
     }
 }
