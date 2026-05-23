@@ -10,6 +10,8 @@ import dev.jdan.snapshotj.internal.SourceLocator.CallerFrame;
 import dev.jdan.snapshotj.internal.TextBlockFinder;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -29,6 +31,7 @@ import java.util.function.Function;
 public final class Snapshot<T> {
 
     private final T value;
+    private final LinkedHashMap<Class<?>, String> replacements = new LinkedHashMap<>();
     private boolean updateRequested;
 
     Snapshot(T value) {
@@ -48,6 +51,42 @@ public final class Snapshot<T> {
      */
     public Snapshot<T> update() {
         this.updateRequested = true;
+        return this;
+    }
+
+    /**
+     * Register a placeholder string to be substituted for any value whose runtime class
+     * exactly matches {@code type} during built-in rendering ({@link #matchesJson(String)} or
+     * {@link #matchesCsv(String)}).
+     *
+     * <p>Use this to neutralize transient values such as {@link java.util.UUID UUIDs},
+     * {@link java.time.Instant Instants}, or other non-deterministic fields that would
+     * otherwise cause spurious mismatches. The placeholder is emitted verbatim in both
+     * verification and {@link #update()} mode, so the in-place rewrite is stable across runs.
+     *
+     * <p>Matching is exact-class only — no subclass walk. {@code null} cells are never
+     * replaced. Calling this method multiple times with the same {@code type} overwrites
+     * the previously registered placeholder.
+     *
+     * <p>The fluent {@link #matches(String, Function)} primitive is renderer-opaque, so it
+     * cannot honor replacements. Calling {@code matches(expected, renderer)} after any
+     * {@code .replacing(...)} call throws {@link IllegalStateException} — failing loud
+     * beats silently emitting the unredacted output.
+     *
+     * @param type        the exact runtime class whose instances should be replaced; must not be {@code null}
+     * @param placeholder the literal string to emit in place of matching instances; must not be {@code null} or empty
+     * @param <X>         the registered type
+     * @return this handle for chaining
+     * @throws NullPointerException     if {@code type} or {@code placeholder} is {@code null}
+     * @throws IllegalArgumentException if {@code placeholder} is empty
+     */
+    public <X> Snapshot<T> replacing(Class<X> type, String placeholder) {
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(placeholder, "placeholder");
+        if (placeholder.isEmpty()) {
+            throw new IllegalArgumentException("placeholder must not be empty");
+        }
+        replacements.put(type, placeholder);
         return this;
     }
 
@@ -79,13 +118,54 @@ public final class Snapshot<T> {
     public void matches(String expected, Function<T, String> renderer) {
         Objects.requireNonNull(expected, "expected");
         Objects.requireNonNull(renderer, "renderer");
-
-        CallerFrame caller = SourceLocator.callerFrame();
+        if (!replacements.isEmpty()) {
+            throw new IllegalStateException(
+                    "replacing(...) is only honored by matchesJson / matchesCsv;"
+                            + " a custom renderer is opaque");
+        }
 
         String actual = renderer.apply(value);
         if (actual == null) {
             throw new IllegalStateException("renderer returned null");
         }
+        compare(expected, actual);
+    }
+
+    /**
+     * Compare the wrapped value against an inline expected JSON text block.
+     *
+     * <p>Renders the value with the built-in JSON renderer (Jackson, alphabetical property
+     * order, ISO-8601 dates, {@code \n} line endings) and compares against {@code expected}
+     * via the same normalize-then-equal pipeline used by {@link #matches(String, Function)}.
+     * Honors any {@link #replacing(Class, String)} registrations.
+     *
+     * @param expected the inline expected JSON snapshot; must not be {@code null}
+     * @throws NullPointerException if {@code expected} is {@code null}
+     * @throws AssertionError       on mismatch, or after queuing an update-mode rewrite
+     */
+    public void matchesJson(String expected) {
+        Objects.requireNonNull(expected, "expected");
+        compare(expected, JsonRenderer.render(value, replacements));
+    }
+
+    /**
+     * Compare the wrapped value against an inline expected CSV text block.
+     *
+     * <p>Renders the value with the built-in CSV renderer (Commons CSV, header derived from
+     * the bean's properties in alphabetical order). The wrapped value is typically a
+     * {@code Collection} of beans. Honors any {@link #replacing(Class, String)} registrations.
+     *
+     * @param expected the inline expected CSV snapshot; must not be {@code null}
+     * @throws NullPointerException if {@code expected} is {@code null}
+     * @throws AssertionError       on mismatch, or after queuing an update-mode rewrite
+     */
+    public void matchesCsv(String expected) {
+        Objects.requireNonNull(expected, "expected");
+        compare(expected, CsvRenderer.render(value, replacements));
+    }
+
+    private void compare(String expected, String actual) {
+        CallerFrame caller = SourceLocator.callerFrame();
 
         String normalizedActual = Normalizer.normalize(actual);
         String normalizedExpected = Normalizer.normalize(expected);
@@ -107,34 +187,5 @@ public final class Snapshot<T> {
                         caller.fileName() + ":" + caller.lineNumber(),
                         normalizedExpected,
                         normalizedActual));
-    }
-
-    /**
-     * Compare the wrapped value against an inline expected JSON text block.
-     *
-     * <p>Delegates to {@link #matches(String, Function)} with the built-in JSON renderer
-     * (Jackson, alphabetical property order, ISO-8601 dates, {@code \n} line endings).
-     *
-     * @param expected the inline expected JSON snapshot; must not be {@code null}
-     * @throws NullPointerException if {@code expected} is {@code null}
-     * @throws AssertionError       on mismatch, or after queuing an update-mode rewrite
-     */
-    public void matchesJson(String expected) {
-        matches(expected, JsonRenderer::render);
-    }
-
-    /**
-     * Compare the wrapped value against an inline expected CSV text block.
-     *
-     * <p>Delegates to {@link #matches(String, Function)} with the built-in CSV renderer
-     * (Commons CSV, header derived from the bean's properties in alphabetical order).
-     * The wrapped value is typically a {@code Collection} of beans.
-     *
-     * @param expected the inline expected CSV snapshot; must not be {@code null}
-     * @throws NullPointerException if {@code expected} is {@code null}
-     * @throws AssertionError       on mismatch, or after queuing an update-mode rewrite
-     */
-    public void matchesCsv(String expected) {
-        matches(expected, CsvRenderer::render);
     }
 }

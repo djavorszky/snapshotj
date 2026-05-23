@@ -2,20 +2,29 @@ package dev.jdan.snapshotj.internal;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JsonRendererTest {
 
     record Point(int x, int y) {}
 
     record Reversed(int z, int a) {}
+
+    record User(UUID id, String name) {}
+
+    record Event(Instant at, String name) {}
+
+    record NumberHolder(Number n) {}
 
     @Test
     void rendersSimpleRecord() {
@@ -93,5 +102,77 @@ class JsonRendererTest {
     @Test
     void nullValueRendersAsJsonNull() {
         assertEquals("null", JsonRenderer.render(null));
+    }
+
+    @Test
+    void emptyReplacementsMatchDefaultOverload() {
+        Point p = new Point(1, 2);
+        assertEquals(JsonRenderer.render(p), JsonRenderer.render(p, Map.of()));
+    }
+
+    @Test
+    void uuidReplacedWithPlaceholder() {
+        User u = new User(UUID.fromString("11111111-2222-3333-4444-555555555555"), "Ada");
+        String expected = """
+                {
+                  "id" : "<uuid>",
+                  "name" : "Ada"
+                }""";
+        assertEquals(
+                expected,
+                JsonRenderer.render(u, Map.of(UUID.class, "<uuid>")));
+    }
+
+    @Test
+    void instantReplacedWithPlaceholder() {
+        Event ev = new Event(Instant.parse("2026-01-15T10:00:00Z"), "boot");
+        String expected = """
+                {
+                  "at" : "<ts>",
+                  "name" : "boot"
+                }""";
+        assertEquals(
+                expected,
+                JsonRenderer.render(ev, Map.of(Instant.class, "<ts>")));
+    }
+
+    @Test
+    void nullFieldStaysNullEvenIfTypeRegistered() {
+        record Box(UUID id) {}
+        Box box = new Box(null);
+        String out = JsonRenderer.render(box, Map.of(UUID.class, "<uuid>"));
+        assertTrue(out.contains("\"id\" : null"), out);
+        assertFalse(out.contains("<uuid>"), out);
+    }
+
+    @Test
+    void replacementAppliesInsideListsAndMaps() {
+        UUID a = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID b = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("ids", List.of(a, b));
+        Map<String, UUID> nested = new LinkedHashMap<>();
+        nested.put("primary", a);
+        root.put("nested", nested);
+        String out = JsonRenderer.render(root, Map.of(UUID.class, "<uuid>"));
+        String expected = """
+                {
+                  "ids" : [
+                    "<uuid>",
+                    "<uuid>"
+                  ],
+                  "nested" : {
+                    "primary" : "<uuid>"
+                  }
+                }""";
+        assertEquals(expected, out);
+    }
+
+    @Test
+    void exactClassOnlyRegisteringSupertypeDoesNotMatchSubclass() {
+        NumberHolder holder = new NumberHolder(42);
+        String out = JsonRenderer.render(holder, Map.of(Number.class, "<num>"));
+        assertTrue(out.contains("\"n\" : 42"), out);
+        assertFalse(out.contains("<num>"), out);
     }
 }

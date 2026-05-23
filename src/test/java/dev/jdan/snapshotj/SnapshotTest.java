@@ -3,7 +3,9 @@ package dev.jdan.snapshotj;
 import dev.jdan.snapshotj.internal.JsonRenderer;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static dev.jdan.snapshotj.Snap.snap;
@@ -102,6 +104,106 @@ class SnapshotTest {
                 IllegalStateException.class,
                 () -> snap(42).matches("anything", n -> null));
         assertTrue(ex.getMessage().contains("renderer returned null"), ex.getMessage());
+    }
+
+    record User(UUID id, Instant createdAt, String name) {}
+
+    @Test
+    void replacingNeutralizesTransientFieldsInJson() {
+        User u = new User(
+                UUID.randomUUID(),
+                Instant.now(),
+                "Ada");
+        snap(u)
+                .replacing(UUID.class, "<uuid>")
+                .replacing(Instant.class, "<timestamp>")
+                .matchesJson("""
+                        {
+                          "createdAt" : "<timestamp>",
+                          "id" : "<uuid>",
+                          "name" : "Ada"
+                        }
+                        """);
+    }
+
+    @Test
+    void replacingNeutralizesTransientFieldsInCsv() {
+        UUID a = UUID.randomUUID();
+        UUID b = UUID.randomUUID();
+        snap(List.of(new User(a, Instant.now(), "Ada"), new User(b, Instant.now(), "Grace")))
+                .replacing(UUID.class, "<uuid>")
+                .replacing(Instant.class, "<ts>")
+                .matchesCsv("""
+                        createdAt,id,name
+                        <ts>,<uuid>,Ada
+                        <ts>,<uuid>,Grace
+                        """);
+    }
+
+    @Test
+    void replacingMismatchStillThrowsAssertionError() {
+        User u = new User(UUID.randomUUID(), Instant.now(), "Ada");
+        AssertionError err = assertThrows(
+                AssertionError.class,
+                () -> snap(u)
+                        .replacing(UUID.class, "<uuid>")
+                        .replacing(Instant.class, "<ts>")
+                        .matchesJson("""
+                                {
+                                  "createdAt" : "<ts>",
+                                  "id" : "<uuid>",
+                                  "name" : "Grace"
+                                }
+                                """));
+        assertTrue(err.getMessage().contains("Ada"), err.getMessage());
+    }
+
+    @Test
+    void replacingWithCustomMatchesThrows() {
+        IllegalStateException ex = assertThrows(
+                IllegalStateException.class,
+                () -> snap(UUID.randomUUID())
+                        .replacing(UUID.class, "<uuid>")
+                        .matches("<uuid>", Object::toString));
+        assertTrue(ex.getMessage().contains("matchesJson"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("matchesCsv"), ex.getMessage());
+    }
+
+    @Test
+    void replacingNullTypeThrows() {
+        assertThrows(
+                NullPointerException.class,
+                () -> snap(42).replacing(null, "<x>"));
+    }
+
+    @Test
+    void replacingNullPlaceholderThrows() {
+        assertThrows(
+                NullPointerException.class,
+                () -> snap(42).replacing(UUID.class, null));
+    }
+
+    @Test
+    void replacingEmptyPlaceholderThrows() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> snap(42).replacing(UUID.class, ""));
+    }
+
+    @Test
+    void replacingSameTypeTwiceOverwrites() {
+        UUID id = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        snap(new User(id, Instant.parse("2026-01-01T00:00:00Z"), "Ada"))
+                .replacing(UUID.class, "<first>")
+                .replacing(UUID.class, "<second>")
+                .replacing(Instant.class, "<ts>")
+                .matchesJson("""
+                        {
+                          "createdAt" : "<ts>",
+                          "id" : "<second>",
+                          "name" : "Ada"
+                        }
+                        """);
     }
 
     @Test

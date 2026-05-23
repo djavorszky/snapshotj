@@ -32,6 +32,11 @@ import java.util.TreeMap;
  *   <li>{@code null} cells emitted as empty;</li>
  *   <li>{@code \n} record separator on every platform.</li>
  * </ul>
+ *
+ * <p>The {@link #render(Object, Map)} overload accepts a type-to-placeholder map.
+ * Any non-null cell whose runtime class exactly matches a registered type is
+ * emitted as the placeholder string instead of its natural representation.
+ * Exact-class only — no subclass walk. Headers are never replaced.
  */
 public final class CsvRenderer {
 
@@ -40,6 +45,10 @@ public final class CsvRenderer {
     private CsvRenderer() {}
 
     public static String render(Object value) {
+        return render(value, Map.of());
+    }
+
+    public static String render(Object value, Map<Class<?>, String> replacements) {
         List<Object> rows = collectRows(value);
         if (rows.isEmpty()) {
             throw new IllegalArgumentException(
@@ -63,12 +72,28 @@ public final class CsvRenderer {
         StringWriter writer = new StringWriter();
         try (CSVPrinter printer = new CSVPrinter(writer, format)) {
             for (Object row : rows) {
-                printer.printRecord(schema.extract(row));
+                printer.printRecord(applyReplacements(schema.extract(row), replacements));
             }
         } catch (IOException e) {
             throw new IllegalStateException("CSV rendering failed", e);
         }
         return writer.toString();
+    }
+
+    private static List<Object> applyReplacements(
+            List<Object> cells, Map<Class<?>, String> replacements) {
+        if (replacements.isEmpty()) {
+            return cells;
+        }
+        List<Object> out = new ArrayList<>(cells.size());
+        for (Object cell : cells) {
+            if (cell != null && replacements.containsKey(cell.getClass())) {
+                out.add(replacements.get(cell.getClass()));
+            } else {
+                out.add(cell);
+            }
+        }
+        return out;
     }
 
     private static List<Object> collectRows(Object value) {

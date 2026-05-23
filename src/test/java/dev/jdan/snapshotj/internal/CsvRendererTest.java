@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -137,5 +138,62 @@ class CsvRendererTest {
                 IllegalArgumentException.class,
                 () -> CsvRenderer.render(List.of(1, 2, 3)));
         assertTrue(ex.getMessage().contains("Map, record, or POJO"), ex.getMessage());
+    }
+
+    record User(UUID id, String name) {}
+
+    @Test
+    void emptyReplacementsMatchDefaultOverload() {
+        List<Point> rows = List.of(new Point(1, 2));
+        assertEquals(CsvRenderer.render(rows), CsvRenderer.render(rows, Map.of()));
+    }
+
+    @Test
+    void uuidCellReplacedForBeanRows() {
+        UUID id = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        String expected = """
+                id,name
+                <uuid>,Ada
+                """;
+        assertEquals(
+                expected,
+                CsvRenderer.render(
+                        List.of(new User(id, "Ada")), Map.of(UUID.class, "<uuid>")));
+    }
+
+    @Test
+    void uuidCellReplacedForMapRows() {
+        UUID id = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", id);
+        row.put("name", "Ada");
+        String expected = """
+                id,name
+                <uuid>,Ada
+                """;
+        assertEquals(
+                expected,
+                CsvRenderer.render(List.of(row), Map.of(UUID.class, "<uuid>")));
+    }
+
+    @Test
+    void nullCellStaysEmptyEvenIfTypeRegistered() {
+        String expected = """
+                age,name
+                ,alice
+                """;
+        assertEquals(
+                expected,
+                CsvRenderer.render(
+                        List.of(new Nullable("alice", null)),
+                        Map.of(Integer.class, "<int>")));
+    }
+
+    @Test
+    void placeholderWithCommaIsQuoted() {
+        UUID id = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        String out = CsvRenderer.render(
+                List.of(new User(id, "Ada")), Map.of(UUID.class, "x,y"));
+        assertTrue(out.contains("\"x,y\""), out);
     }
 }
