@@ -35,6 +35,19 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Whitebox tests in src/test/java/dev/jdan/snapshotj/internal/ reach into the
+// non-exported `internal` package. With module-info.java present, Gradle puts
+// main on the modulepath when compiling tests, which hides `internal`. Patch
+// the test sources into the main module so the compile keeps working.
+// (Test runtime stays on the classpath because there's no test module-info,
+// so no runtime --patch-module is needed.)
+tasks.named<JavaCompile>("compileTestJava") {
+    options.compilerArgs.addAll(listOf(
+        "--patch-module",
+        "dev.jdan.snapshotj=${sourceSets["main"].output.asPath}"
+    ))
+}
+
 tasks.test {
     useJUnitPlatform()
 }
