@@ -17,17 +17,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture
 
-User-facing surface tiny — one static entry point + fluent builder. Internals follow a 3-pass pipeline: **build IR → render IR → compare**.
+User-facing surface tiny — one static entry point + fluent builder. Internals follow a 4-pass pipeline: **build IR → mutate IR → render IR → compare**.
 
 ```
 dev.jdan.snapshotj
 ├── Snap                # static snap(value) entry
-├── Snapshot            # update(), replacingType, matches(expected, Function<JsonNode,String>), matchesJson, matchesCsv
+├── Snapshot            # update(), replacingType, replacingField, matches(expected, Function<JsonNode,String>), matchesJson, matchesCsv
 ├── SnapshotConfig      # env var / sysprop reads (SNAPSHOTJ_UPDATE, snapshotj.update, snapshotj.sourceRoots)
 └── internal/           # everything else; not exported by intent
     ├── IrBuilder          # Pass 1: object -> JsonNode IR; owns canonical Jackson config; applies type replacements at build time
-    ├── JsonRenderer       # Pass 2 (JSON): JsonNode -> canonical string (2-space indent, \n)
-    ├── CsvRenderer        # Pass 2 (CSV): JsonNode (ArrayNode<ObjectNode>) -> Commons CSV; headers alphabetized
+    ├── IrTransform        # Pass 2: in-place tree mutation; applies field-path replacements
+    ├── FieldPath          # JSONPath-subset parser (`$.foo`, `..bar`); sealed Segment model
+    ├── JsonRenderer       # Pass 3 (JSON): JsonNode -> canonical string (2-space indent, \n)
+    ├── CsvRenderer        # Pass 3 (CSV): JsonNode (ArrayNode<ObjectNode>) -> Commons CSV; headers alphabetized
     ├── Normalizer         # canonical form: strip trailing whitespace + final newlines
     ├── SourceLocator      # StackWalker + file resolution against snapshotj.sourceRoots
     ├── TextBlockFinder    # locate """..."""  range in the source file
@@ -36,7 +38,7 @@ dev.jdan.snapshotj
     └── DiffFormatter      # java-diff-utils → unified diff for AssertionError messages
 ```
 
-`matches(expected, Function<JsonNode,String> renderer)` = **single primitive** for the custom-renderer path. The renderer receives the IR after type replacements are applied, so all three entry points (`matches`, `matchesJson`, `matchesCsv`) honor substitutions uniformly. `matchesJson` and `matchesCsv` are sugar that wire the built-in renderer over the same `compare()` helper — no parallel diff/update logic.
+`matches(expected, Function<JsonNode,String> renderer)` = **single primitive** for the custom-renderer path. The renderer receives the IR after type/field replacements are applied, so all three entry points (`matches`, `matchesJson`, `matchesCsv`) honor substitutions uniformly. `matchesJson` and `matchesCsv` are sugar that wire the built-in renderer over the same `compare()` helper — no parallel diff/update logic.
 
 `com.fasterxml.jackson.databind.JsonNode` is re-exported via `requires transitive` in `module-info.java` so modular consumers can name it in custom-renderer lambdas.
 
@@ -46,7 +48,7 @@ dev.jdan.snapshotj
 2. **Comparison normalizes trailing whitespace and trailing newlines on both sides** — Java text blocks have surprising trailing-newline behavior. Normalize once, document as canonical.
 3. **Edits queued, not applied at mismatch.** JVM shutdown hook (registered lazily on first edit) flushes per file: reads, applies queued edits in **reverse line order** (so earlier offsets don't shift), writes via `Files.move` from same-directory temp file.
 4. **Source path discovery uses `src/test/java` and `src/main/java` defaults**, overridable via `-Dsnapshotj.sourceRoots=path1:path2`. Throw clear error listing candidates if file can't be located.
-5. **`<snap:ignore>` placeholders explicitly out of scope.** Don't parse magic tokens inside the expected literal. Transients are neutralized at the IR layer via `.replacingType(Class, String)` (exact-class only; `null` cells unaffected through this channel). Custom `matches(expected, Function<JsonNode, String>)` receives the same already-mutated IR, so substitutions apply uniformly across all three entry points.
+5. **`<snap:ignore>` placeholders explicitly out of scope.** Don't parse magic tokens inside the expected literal. Transients are neutralized at the IR layer via `.replacingType(Class, String)` (exact-class only; `null` cells unaffected through this channel) or `.replacingField(path, String)` (JSONPath subset: `$.foo`, `..foo`; replaces `null` cells too; zero matches → `AssertionError`). Custom `matches(expected, Function<JsonNode, String>)` receives the same already-mutated IR, so substitutions apply uniformly across all three entry points.
 6. **`matchesTable` dropped from v1.** Don't add it.
 
 ## Testing strategy (two layers — both required)
