@@ -2,6 +2,7 @@ package dev.jdan.snapshotj.smoke;
 
 import static dev.jdan.snapshotj.Snap.snap;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,9 @@ import org.junit.jupiter.api.Test;
 public class SmokeTest {
 
   record ThisIsARealRecord(String word, int index, LocalDate myDate) {}
+
+  record SubRecord(long id, Instant time, String word) {}
+  record TestRecord(long id, Instant time, SubRecord subRecord) {}
 
   @Test
   void smokeTestAgainstRecord() {
@@ -60,4 +64,71 @@ public class SmokeTest {
             """);
   }
 
+  @Test
+  void testReplacements() {
+
+    var x = new TestRecord(123L, Instant.now(), new SubRecord(110L, Instant.now().minusSeconds(10), "Haha"));
+
+    snap(x)
+        .replacingType(Instant.class, "<Instant.class>")
+        .replacingField("..id", "<id>")
+        .replacingField("$.subRecord.time", "<time>")
+        .matchesJson("""
+            {
+              "id" : "<id>",
+              "subRecord" : {
+                "id" : "<id>",
+                "time" : "<time>",
+                "word" : "Haha"
+              },
+              "time" : "<Instant.class>"
+            }
+            """);
+
+    snap(List.of(x))
+        .update()
+        .replacingType(Instant.class, "<Instant.class>")
+        .replacingField("..id", "<id>")
+        .matchesCsv("""
+            id,subRecord,time
+            <id>,"{""id"":110,""time"":""<Instant.class>"",""word"":""Haha""}",<Instant.class>
+            """);
+
+  }
+
+  @Test
+  void testReplacementsInLists() {
+    var xs = List.of(
+
+        new TestRecord(110L, Instant.now(), new SubRecord(120L, Instant.now().minusSeconds(10), "Haha")),
+        new TestRecord(111L, Instant.now(), new SubRecord(121L, Instant.now().minusSeconds(10), "Haha2"))
+    );
+
+    snap(xs)
+        .replacingType(Instant.class, "<Instant.class>")
+        .replacingField("..id", "<id>")
+        .matchesJson("""
+        [
+          {
+            "id" : "<id>",
+            "subRecord" : {
+              "id" : "<id>",
+              "time" : "<Instant.class>",
+              "word" : "Haha"
+            },
+            "time" : "<Instant.class>"
+          },
+          {
+            "id" : "<id>",
+            "subRecord" : {
+              "id" : "<id>",
+              "time" : "<Instant.class>",
+              "word" : "Haha2"
+            },
+            "time" : "<Instant.class>"
+          }
+        ]
+        """);
+
+  }
 }
