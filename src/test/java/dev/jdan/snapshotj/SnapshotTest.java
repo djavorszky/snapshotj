@@ -221,4 +221,242 @@ class SnapshotTest {
         assertThrows(AssertionError.class, () -> snap(p).matchesJson(wrong));
         assertThrows(AssertionError.class, () -> snap(p).matches(wrong, JsonRenderer::renderTree));
     }
+
+    record Auto(long id, String name) {}
+
+    record WrapAuto(Auto user) {}
+
+    @Test
+    void replacingFieldNeutralizesAnchoredRootInJson() {
+        snap(new Auto(System.nanoTime(), "Ada"))
+                .replacingField("$.id", "<id>")
+                .matchesJson("""
+                        {
+                          "id" : "<id>",
+                          "name" : "Ada"
+                        }
+                        """);
+    }
+
+    @Test
+    void replacingFieldNeutralizesNestedAnchoredInJson() {
+        snap(new WrapAuto(new Auto(System.nanoTime(), "Ada")))
+                .replacingField("$.user.id", "<id>")
+                .matchesJson("""
+                        {
+                          "user" : {
+                            "id" : "<id>",
+                            "name" : "Ada"
+                          }
+                        }
+                        """);
+    }
+
+    record Tree(long id, Tree child) {}
+
+    @Test
+    void replacingFieldRecursiveDescentReplacesAllInJson() {
+        snap(new Tree(1L, new Tree(2L, null)))
+                .replacingField("..id", "<id>")
+                .matchesJson("""
+                        {
+                          "child" : {
+                            "child" : null,
+                            "id" : "<id>"
+                          },
+                          "id" : "<id>"
+                        }
+                        """);
+    }
+
+    @Test
+    void replacingFieldAnchoredIsScoped() {
+        snap(new WrapAuto(new Auto(99L, "Ada")))
+                .replacingField("$.user.id", "<id>")
+                .matchesJson("""
+                        {
+                          "user" : {
+                            "id" : "<id>",
+                            "name" : "Ada"
+                          }
+                        }
+                        """);
+    }
+
+    record HasUuidId(UUID id, String name) {}
+
+    @Test
+    void replacingFieldWinsOverType() {
+        snap(new HasUuidId(UUID.randomUUID(), "Ada"))
+                .replacingType(UUID.class, "<uuid>")
+                .replacingField("$.id", "<id>")
+                .matchesJson("""
+                        {
+                          "id" : "<id>",
+                          "name" : "Ada"
+                        }
+                        """);
+    }
+
+    record Box(String name, String marker) {}
+
+    @Test
+    void replacingFieldOnNullStillReplacesInJson() {
+        snap(new Box("Ada", null))
+                .replacingField("$.marker", "<set>")
+                .matchesJson("""
+                        {
+                          "marker" : "<set>",
+                          "name" : "Ada"
+                        }
+                        """);
+    }
+
+    @Test
+    void replacingFieldNoMatchThrowsInJson() {
+        AssertionError err = assertThrows(
+                AssertionError.class,
+                () -> snap(new Auto(1L, "Ada"))
+                        .replacingField("$.missing", "<x>")
+                        .matchesJson("""
+                                {
+                                  "id" : 1,
+                                  "name" : "Ada"
+                                }
+                                """));
+        assertTrue(err.getMessage().contains("$.missing"), err.getMessage());
+    }
+
+    @Test
+    void replacingFieldRecursiveNoMatchThrowsInJson() {
+        AssertionError err = assertThrows(
+                AssertionError.class,
+                () -> snap(new Auto(1L, "Ada"))
+                        .replacingField("..nonexistent", "<x>")
+                        .matchesJson("""
+                                {
+                                  "id" : 1,
+                                  "name" : "Ada"
+                                }
+                                """));
+        assertTrue(err.getMessage().contains("..nonexistent"), err.getMessage());
+    }
+
+    @Test
+    void replacingFieldSamePathTwiceOverwrites() {
+        snap(new Auto(1L, "Ada"))
+                .replacingField("$.id", "<first>")
+                .replacingField("$.id", "<second>")
+                .matchesJson("""
+                        {
+                          "id" : "<second>",
+                          "name" : "Ada"
+                        }
+                        """);
+    }
+
+    @Test
+    void replacingFieldBarePathRejected() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> snap(new Auto(1L, "Ada")).replacingField("id", "<x>"));
+    }
+
+    @Test
+    void replacingFieldNullPathThrows() {
+        assertThrows(
+                NullPointerException.class,
+                () -> snap(new Auto(1L, "Ada")).replacingField(null, "<x>"));
+    }
+
+    @Test
+    void replacingFieldNullPlaceholderThrows() {
+        assertThrows(
+                NullPointerException.class,
+                () -> snap(new Auto(1L, "Ada")).replacingField("$.id", null));
+    }
+
+    @Test
+    void replacingFieldEmptyPlaceholderThrows() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> snap(new Auto(1L, "Ada")).replacingField("$.id", ""));
+    }
+
+    @Test
+    void replacingFieldAppliesInCustomMatches() {
+        snap(new Auto(1L, "Ada"))
+                .replacingField("$.id", "<id>")
+                .matches("""
+                        {"id":"<id>","name":"Ada"}""",
+                        JsonNode::toString);
+    }
+
+    @Test
+    void replacingFieldAnchoredColumnInCsv() {
+        snap(List.of(new Auto(1L, "Ada"), new Auto(2L, "Grace")))
+                .replacingField("$.id", "<id>")
+                .matchesCsv("""
+                        id,name
+                        <id>,Ada
+                        <id>,Grace
+                        """);
+    }
+
+    @Test
+    void replacingFieldRecursiveColumnInCsv() {
+        snap(List.of(new Auto(1L, "Ada"), new Auto(2L, "Grace")))
+                .replacingField("..id", "<id>")
+                .matchesCsv("""
+                        id,name
+                        <id>,Ada
+                        <id>,Grace
+                        """);
+    }
+
+    @Test
+    void replacingFieldNestedPathOnCsvThrows() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> snap(List.of(new Auto(1L, "Ada")))
+                        .replacingField("$.foo.id", "<id>")
+                        .matchesCsv("""
+                                id,name
+                                <id>,Ada
+                                """));
+    }
+
+    @Test
+    void replacingFieldColumnMissingInCsvThrows() {
+        AssertionError err = assertThrows(
+                AssertionError.class,
+                () -> snap(List.of(new Auto(1L, "Ada")))
+                        .replacingField("$.missing", "<x>")
+                        .matchesCsv("""
+                                id,name
+                                1,Ada
+                                """));
+        assertTrue(err.getMessage().contains("missing"), err.getMessage());
+    }
+
+    @Test
+    void replacingFieldWinsOverTypeInCsv() {
+        snap(List.of(new HasUuidId(UUID.randomUUID(), "Ada")))
+                .replacingType(UUID.class, "<uuid>")
+                .replacingField("$.id", "<id>")
+                .matchesCsv("""
+                        id,name
+                        <id>,Ada
+                        """);
+    }
+
+    @Test
+    void replacingFieldOnNullCellInCsv() {
+        snap(List.of(new Box("Ada", null)))
+                .replacingField("$.marker", "<set>")
+                .matchesCsv("""
+                        marker,name
+                        <set>,Ada
+                        """);
+    }
 }
