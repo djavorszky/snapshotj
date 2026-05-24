@@ -7,7 +7,7 @@
 module dev.jdan.snapshotj {
     exports dev.jdan.snapshotj;
 
-    requires com.fasterxml.jackson.databind;
+    requires transitive com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.datatype.jsr310;
     requires com.fasterxml.jackson.datatype.jdk8;
     requires org.apache.commons.csv;

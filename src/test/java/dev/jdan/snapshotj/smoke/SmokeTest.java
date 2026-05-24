@@ -14,7 +14,6 @@ public class SmokeTest {
   void smokeTestAgainstRecord() {
     var aRecord = new ThisIsARealRecord("my word!", 42, LocalDate.of(2026, 5, 17));
 
-
     snap(aRecord)
         .matchesJson("""
             {
@@ -23,11 +22,6 @@ public class SmokeTest {
               "word" : "my word!"
             }
             """);
-
-    snap(aRecord)
-        .matches("""
-            ThisIsARealRecord[word=my word!, index=42, myDate=2026-05-17]
-            """, Record::toString);
   }
 
   @Test
@@ -64,11 +58,6 @@ public class SmokeTest {
             42,2026-05-17,my word!
             1,2020-05-17,fav word is bob
             """);
-
-    snap(list)
-        .matches("""
-            [ThisIsARealRecord[word=my word!, index=42, myDate=2026-05-17], ThisIsARealRecord[word=fav word is bob, index=1, myDate=2020-05-17]]
-            """, List::toString);
   }
 
 }

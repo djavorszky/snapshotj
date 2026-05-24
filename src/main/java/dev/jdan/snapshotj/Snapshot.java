@@ -1,7 +1,9 @@
 package dev.jdan.snapshotj;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import dev.jdan.snapshotj.internal.CsvRenderer;
 import dev.jdan.snapshotj.internal.DiffFormatter;
+import dev.jdan.snapshotj.internal.IrBuilder;
 import dev.jdan.snapshotj.internal.JsonRenderer;
 import dev.jdan.snapshotj.internal.Normalizer;
 import dev.jdan.snapshotj.internal.PendingEdits;
@@ -31,7 +33,7 @@ import java.util.function.Function;
 public final class Snapshot<T> {
 
     private final T value;
-    private final LinkedHashMap<Class<?>, String> replacements = new LinkedHashMap<>();
+    private final LinkedHashMap<Class<?>, String> typeReplacements = new LinkedHashMap<>();
     private boolean updateRequested;
 
     Snapshot(T value) {
@@ -68,10 +70,9 @@ public final class Snapshot<T> {
      * replaced. Calling this method multiple times with the same {@code type} overwrites
      * the previously registered placeholder.
      *
-     * <p>The fluent {@link #matches(String, Function)} primitive is renderer-opaque, so it
-     * cannot honor replacements. Calling {@code matches(expected, renderer)} after any
-     * {@code .replacing(...)} call throws {@link IllegalStateException} — failing loud
-     * beats silently emitting the unredacted output.
+     * <p>{@link #matches(String, Function)}, {@link #matchesJson(String)}, and
+     * {@link #matchesCsv(String)} all honor registrations — the substitution is applied to
+     * the IR before any renderer (built-in or custom) sees it.
      *
      * @param type        the exact runtime class whose instances should be replaced; must not be {@code null}
      * @param placeholder the literal string to emit in place of matching instances; must not be {@code null} or empty
@@ -80,24 +81,29 @@ public final class Snapshot<T> {
      * @throws NullPointerException     if {@code type} or {@code placeholder} is {@code null}
      * @throws IllegalArgumentException if {@code placeholder} is empty
      */
-    public <X> Snapshot<T> replacing(Class<X> type, String placeholder) {
+    public <X> Snapshot<T> replacingType(Class<X> type, String placeholder) {
         Objects.requireNonNull(type, "type");
         Objects.requireNonNull(placeholder, "placeholder");
         if (placeholder.isEmpty()) {
             throw new IllegalArgumentException("placeholder must not be empty");
         }
-        replacements.put(type, placeholder);
+        typeReplacements.put(type, placeholder);
         return this;
     }
 
     /**
-     * Compare the wrapped value against an inline expected text block using the supplied renderer.
+     * Compare the wrapped value against an inline expected text block using a custom renderer
+     * that operates on the {@link JsonNode} IR.
      *
      * <p>This is the single comparison primitive; {@link #matchesJson(String)} and
      * {@link #matchesCsv(String)} are sugar that bind the built-in renderers and delegate
-     * here. Both {@code expected} and the renderer output are folded to canonical form
-     * (trailing whitespace stripped, trailing newlines collapsed) before equality check,
-     * so insignificant whitespace differences never produce false mismatches.
+     * here. The wrapped value is converted to a {@code JsonNode} via the same canonical
+     * pipeline used by {@code matchesJson} (alphabetical properties, ISO-8601 dates, etc.),
+     * any {@link #replacingType(Class, String)} substitutions are applied, and the
+     * resulting tree is handed to {@code renderer}.
+     *
+     * <p>Both {@code expected} and the renderer output are folded to canonical form
+     * (trailing whitespace stripped, trailing newlines collapsed) before equality check.
      *
      * <p>Behavior on mismatch:
      * <ul>
@@ -109,22 +115,20 @@ public final class Snapshot<T> {
      * </ul>
      *
      * @param expected the inline expected snapshot (typically a Java text block); must not be {@code null}
-     * @param renderer function that converts the wrapped value to its snapshot string; must not be {@code null}
-     *                 and must not return {@code null}
+     * @param renderer function that converts the IR to its snapshot string; must not be {@code null}
+     *                 and must not return {@code null}. To snapshot a raw string value, pass
+     *                 {@link JsonNode#asText()}.
      * @throws NullPointerException  if {@code expected} or {@code renderer} is {@code null}
      * @throws IllegalStateException if {@code renderer} returns {@code null}
      * @throws AssertionError        on mismatch, or after queuing an update-mode rewrite
      */
-    public void matches(String expected, Function<T, String> renderer) {
+    public void matches(String expected, Function<JsonNode, String> renderer) {
         Objects.requireNonNull(expected, "expected");
         Objects.requireNonNull(renderer, "renderer");
-        if (!replacements.isEmpty()) {
-            throw new IllegalStateException(
-                    "replacing(...) is only honored by matchesJson / matchesCsv;"
-                            + " a custom renderer is opaque");
-        }
 
-        String actual = renderer.apply(value);
+        JsonNode tree = IrBuilder.build(value, typeReplacements);
+
+        String actual = renderer.apply(tree);
         if (actual == null) {
             throw new IllegalStateException("renderer returned null");
         }
@@ -134,10 +138,10 @@ public final class Snapshot<T> {
     /**
      * Compare the wrapped value against an inline expected JSON text block.
      *
-     * <p>Renders the value with the built-in JSON renderer (Jackson, alphabetical property
-     * order, ISO-8601 dates, {@code \n} line endings) and compares against {@code expected}
-     * via the same normalize-then-equal pipeline used by {@link #matches(String, Function)}.
-     * Honors any {@link #replacing(Class, String)} registrations.
+     * <p>Renders the value via the IR pipeline: build {@link JsonNode} IR (honoring
+     * {@link #replacingType(Class, String)} registrations), serialize the tree, then
+     * compare via the same normalize-then-equal pipeline used by
+     * {@link #matches(String, Function)}.
      *
      * @param expected the inline expected JSON snapshot; must not be {@code null}
      * @throws NullPointerException if {@code expected} is {@code null}
@@ -145,15 +149,15 @@ public final class Snapshot<T> {
      */
     public void matchesJson(String expected) {
         Objects.requireNonNull(expected, "expected");
-        compare(expected, JsonRenderer.render(value, replacements));
+        JsonNode tree = IrBuilder.build(value, typeReplacements);
+        compare(expected, JsonRenderer.renderTree(tree));
     }
 
     /**
      * Compare the wrapped value against an inline expected CSV text block.
      *
-     * <p>Renders the value with the built-in CSV renderer (Commons CSV, header derived from
-     * the bean's properties in alphabetical order). The wrapped value is typically a
-     * {@code Collection} of beans. Honors any {@link #replacing(Class, String)} registrations.
+     * <p>Renders the value via the built-in CSV renderer. Honors any
+     * {@link #replacingType(Class, String)} registrations.
      *
      * @param expected the inline expected CSV snapshot; must not be {@code null}
      * @throws NullPointerException if {@code expected} is {@code null}
@@ -161,7 +165,7 @@ public final class Snapshot<T> {
      */
     public void matchesCsv(String expected) {
         Objects.requireNonNull(expected, "expected");
-        compare(expected, CsvRenderer.render(value, replacements));
+        compare(expected, CsvRenderer.render(value, typeReplacements));
     }
 
     private void compare(String expected, String actual) {

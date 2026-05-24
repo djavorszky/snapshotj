@@ -1,5 +1,6 @@
 package dev.jdan.snapshotj;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
 import static dev.jdan.snapshotj.Snap.snap;
@@ -31,6 +32,6 @@ class DiffMessageSnapshotTest {
                 +  "x" : 1,
                 +  "y" : 2
                  }
-                """, s -> s);
+                """, JsonNode::asText);
     }
 }
