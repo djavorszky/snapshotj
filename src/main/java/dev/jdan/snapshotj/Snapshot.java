@@ -40,7 +40,15 @@ public final class Snapshot<T> {
     private boolean updateRequested;
 
     Snapshot(T value) {
+        this(value, Map.of(), Map.of());
+    }
+
+    Snapshot(T value,
+             Map<Class<?>, String> typeSeed,
+             Map<String, String> fieldSeed) {
         this.value = value;
+        this.typeReplacements.putAll(typeSeed);
+        this.fieldReplacements.putAll(fieldSeed);
     }
 
     /**

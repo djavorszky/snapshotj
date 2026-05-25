@@ -21,7 +21,8 @@ User-facing surface tiny — one static entry point + fluent builder. Internals 
 
 ```
 dev.jdan.snapshotj
-├── Snap                # static snap(value) entry
+├── Snap                # static snap(value) + configure() entry points
+├── ConfiguredSnap      # reusable immutable factory: replacingType, replacingField, snap(value)
 ├── Snapshot            # update(), replacingType, replacingField, matches(expected, Function<JsonNode,String>), matchesJson, matchesCsv
 ├── SnapshotConfig      # env var / sysprop reads (SNAPSHOTJ_UPDATE, snapshotj.update, snapshotj.sourceRoots)
 └── internal/           # everything else; not exported by intent
@@ -41,6 +42,8 @@ dev.jdan.snapshotj
 `matches(expected, Function<JsonNode,String> renderer)` = **single primitive** for the custom-renderer path. The renderer receives the IR after type/field replacements are applied, so all three entry points (`matches`, `matchesJson`, `matchesCsv`) honor substitutions uniformly. `matchesJson` and `matchesCsv` are sugar that wire the built-in renderer over the same `compare()` helper — no parallel diff/update logic.
 
 `com.fasterxml.jackson.databind.JsonNode` is re-exported via `requires transitive` in `module-info.java` so modular consumers can name it in custom-renderer lambdas.
+
+`Snap.snap(v)` is sugar for `Snap.configure().snap(v)`: both go through a private empty `ConfiguredSnap.DEFAULT`, so the static and configured paths share one construction route. `ConfiguredSnap` is immutable — each `.replacingType/.replacingField` returns a new instance, so a `static final ConfiguredSnap` field can be shared across tests and threads. Per-call `.replacingType/.replacingField` on the `Snapshot` returned by `ConfiguredSnap.snap(value)` layers atop the seed and wins on key conflict (`LinkedHashMap.put` overwrite).
 
 ### Critical invariants
 
